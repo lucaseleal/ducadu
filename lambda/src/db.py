@@ -22,6 +22,6 @@ def upsert(conn, sql, rows, mode="batch", page_size=1000):
 
         conn.commit()
 
-    except Exception:
-    conn.rollback()
-    raise
+    except Exception as e:
+        conn.rollback()
+        raise

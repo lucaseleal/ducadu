@@ -8,3 +8,4 @@ local/
 secrets
 .DS_Store
 create_success.py
+.vscode/
