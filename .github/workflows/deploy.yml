@@ -1,11 +1,12 @@
 name: Deploy Lambda
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'lambda/**'   # só roda se mexer na pasta lambda
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'lambda/**'   # só roda se mexer na pasta lambda
 
 jobs:
   deploy:
