@@ -3,13 +3,12 @@ from datetime import datetime
 from typing import Any
 import boto3
 from src.config import LANDING_BUCKET
+import botocore
 
 s3 = boto3.client("s3")
 
-
 def build_prefix(api: str, store: str, day: str) -> str:
     return f"{api}/store={store}/dt={day}/"
-
 
 def already_ingested(prefix: str) -> bool:
     try:
@@ -18,8 +17,11 @@ def already_ingested(prefix: str) -> bool:
             Key=f"{prefix}_SUCCESS"
         )
         return True
-    except:
-        return False
+
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == '404':
+            return False
+        raise
 
 def save_json(
     payload: Any,
