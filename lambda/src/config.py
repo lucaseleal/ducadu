@@ -32,9 +32,9 @@ DEFAULT_BACKOFF = 5
 # --------------------------------------------------
 LANDING_BUCKET = "ducadu_landing"
 
-LANDING_SALES = LANDING_BUCKET / "sales"
-LANDING_SALES_ITEMS = LANDING_BUCKET / "sales_items"
-LANDING_INVENTORY = LANDING_BUCKET / "inventory"
+LANDING_SALES = "sales"
+LANDING_SALES_ITEMS = "sales_items"
+LANDING_INVENTORY = "inventory"
 
 def build_headers(token: str) -> dict:
 
