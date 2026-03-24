@@ -1,4 +1,4 @@
-from datetime import datetime, date, time, timedelta, timezone
+from datetime import datetime
 
 from src.config import STORE_TOKENS, build_headers
 
@@ -40,10 +40,3 @@ def main(start_date: datetime, end_date: datetime, incremental: bool = True) -> 
             store=store,
             incremental=incremental,
         )
-
-
-if __name__ == "__main__":
-    today: date = datetime.now(timezone.utc).date()
-    start = datetime.combine(today - timedelta(days=15), time.min, tzinfo=timezone.utc)
-    end = datetime.combine(today, time.max, tzinfo=timezone.utc)
-    main(start, end, incremental=True)
