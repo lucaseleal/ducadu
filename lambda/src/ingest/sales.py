@@ -3,8 +3,9 @@ from src.config import API_SALES, LANDING_SALES, DEFAULT_LIMIT, DEFAULT_TIMEOUT,
 from src.db import get_conn, upsert
 from src.utils.dates import daterange
 from src.utils.http import fetch_paginated
-from src.utils.storage import build_prefix, already_ingested, save_json, delete_prefix
+from src.utils.storage import build_prefix, already_ingested, save_json, delete_prefix, mark_success
 from src.utils.params import sales_params_builder
+
 
 def transform_sale(s: dict) -> tuple:
     partner = s.get("partner_sale") or {}
@@ -37,10 +38,11 @@ def transform_sale(s: dict) -> tuple:
         nfce.get("serie"),
         nfce.get("numero"),
         nfce.get("chave_acesso"),
-        nfce.get("data_emissao")
+        nfce.get("data_emissao"),
     )
 
 
+# psycopg3: sem VALUES %s — usa placeholders individuais com executemany
 UPSERT_SALES_SQL = """
 INSERT INTO sales (
     id_sale,
@@ -70,61 +72,70 @@ INSERT INTO sales (
     nfce_key,
     nfce_issued_at
 )
-VALUES %s
+VALUES (
+    %s, %s, %s, %s, %s, %s,
+    %s, %s, %s, %s, %s,
+    %s, %s, %s,
+    %s, %s, %s, %s,
+    %s, %s, %s, %s
+)
 ON CONFLICT (id_sale) DO UPDATE SET
-    updated_at = EXCLUDED.updated_at,
-    total_amount = EXCLUDED.total_amount,
-    total_amount_items = EXCLUDED.total_amount_items,
-    total_discount = EXCLUDED.total_discount,
-    total_increase = EXCLUDED.total_increase,
-    delivery_fee = EXCLUDED.delivery_fee,
-    partner_status = EXCLUDED.partner_status,
+    updated_at           = EXCLUDED.updated_at,
+    total_amount         = EXCLUDED.total_amount,
+    total_amount_items   = EXCLUDED.total_amount_items,
+    total_discount       = EXCLUDED.total_discount,
+    total_increase       = EXCLUDED.total_increase,
+    delivery_fee         = EXCLUDED.delivery_fee,
+    partner_status       = EXCLUDED.partner_status,
     count_canceled_items = EXCLUDED.count_canceled_items;
 """
+
 
 def main(start_date: datetime, end_date: datetime, headers: dict, store: str, incremental: bool = True):
     conn = get_conn()
     total = 0
 
-    for day_start, day_end in daterange(start_date, end_date):
-        day = day_start.date()
+    try:
+        for day_start, day_end in daterange(start_date, end_date):
+            day = day_start.date()
+            prefix = build_prefix(LANDING_SALES, store, str(day))
 
-        prefix = build_prefix(LANDING_SALES, store, str(day))
+            if incremental and already_ingested(prefix):
+                print(f"[SKIP] Sales - Store {store}, Day {day}")
+                continue
 
-        if incremental and already_ingested(prefix):
-            print(f"[SKIP] Sales - Store {store}, Day {day}")
-            continue
+            if not incremental:
+                print(f"[OVERWRITE] Sales - Store {store}, Day {day}")
+                delete_prefix(prefix)
 
-        if not incremental:
-            print(f"[OVERWRITE] Sales - Store {store}, Day {day}")
-            delete_prefix(prefix)
-            
-        print(f"[INFO] Sales - Store {store}, Day: {day}")
+            print(f"[INFO] Sales - Store {store}, Day: {day}")
 
-        rows = []
+            rows = []
 
-        for offset, data in fetch_paginated(
-            url=API_SALES,
-            headers=headers,
-            params_builder=sales_params_builder(day_start, day_end,DEFAULT_LIMIT),
-            limit=DEFAULT_LIMIT,
-            timeout=DEFAULT_TIMEOUT,
-            retries=DEFAULT_RETRIES,
-            backoff=DEFAULT_BACKOFF,
-        ):
-            save_json(
-                payload=data,
-                prefix=prefix,
-                file_prefix=f"offset={offset:05d}",
-            )
-            rows.extend(transform_sale(s) for s in data)
+            for offset, data in fetch_paginated(
+                url=API_SALES,
+                headers=headers,
+                params_builder=sales_params_builder(day_start, day_end, DEFAULT_LIMIT),
+                limit=DEFAULT_LIMIT,
+                timeout=DEFAULT_TIMEOUT,
+                retries=DEFAULT_RETRIES,
+                backoff=DEFAULT_BACKOFF,
+            ):
+                save_json(
+                    payload=data,
+                    prefix=prefix,
+                    file_prefix=f"offset={offset:05d}",
+                )
+                rows.extend(transform_sale(s) for s in data)
 
-        if rows:
-            upsert(conn, UPSERT_SALES_SQL, rows, mode="values")
-            total += len(rows)
-            mark_success(prefix)    
+            if rows:
+                upsert(conn, UPSERT_SALES_SQL, rows)
+                mark_success(prefix)
+                total += len(rows)
 
-        print(f"[PAGE] sales {store}, {day}, db_rows={len(rows)}")
+            print(f"[DONE-DAY] sales {store}, {day}, db_rows={len(rows)}")
 
-    conn.close()
+    finally:
+        conn.close()
+
     print(f"[DONE] Total sales ingested: {total}")

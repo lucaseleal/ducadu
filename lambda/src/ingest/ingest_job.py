@@ -1,43 +1,49 @@
+from datetime import datetime, date, time, timedelta, timezone
+
 from src.config import STORE_TOKENS, build_headers
-from src.ingest.inventory import main as ingest_inventory_movements
-from src.ingest.sales import main as ingest_sales
-from src.ingest.sales_items import main as ingest_sales_items
-from datetime import datetime, date, time, timedelta
 
-today = datetime.utcnow().date()
 
-start_date = datetime.combine(today - timedelta(days=15), time.min)
-end_date = datetime.combine(today, time.max)
+def main(start_date: datetime, end_date: datetime, incremental: bool = True) -> None:
+    # Importações locais para evitar circular import e manter o módulo leve no cold start
+    from src.ingest.inventory import main as ingest_inventory
+    from src.ingest.sales import main as ingest_sales
+    from src.ingest.sales_items import main as ingest_sales_items
 
-def main(start_date: datetime, end_date: datetime, incremental: bool = True):
     for store, token in STORE_TOKENS.items():
-        print(f"\n===== INGEST STORE: {store.upper()} =====")
+        if not token:
+            print(f"[WARN] Token não definido para loja '{store}' — pulando")
+            continue
 
+        print(f"\n===== INGEST STORE: {store.upper()} =====")
         headers = build_headers(token)
 
-        ingest_inventory_movements(
+        ingest_inventory(
             start_date=start_date,
             end_date=end_date,
             headers=headers,
-            incremental=incremental,
             store=store,
+            incremental=incremental,
         )
 
         ingest_sales(
             start_date=start_date,
             end_date=end_date,
             headers=headers,
-            incremental=incremental,
             store=store,
+            incremental=incremental,
         )
 
         ingest_sales_items(
             start_date=start_date,
             end_date=end_date,
             headers=headers,
-            incremental=incremental,
             store=store,
+            incremental=incremental,
         )
 
+
 if __name__ == "__main__":
-    main(start_date, end_date,incremental = True)
+    today: date = datetime.now(timezone.utc).date()
+    start = datetime.combine(today - timedelta(days=15), time.min, tzinfo=timezone.utc)
+    end = datetime.combine(today, time.max, tzinfo=timezone.utc)
+    main(start, end, incremental=True)

@@ -12,7 +12,7 @@ from src.config import (
 from src.db import get_conn, upsert
 from src.utils.dates import daterange
 from src.utils.http import fetch_paginated
-from src.utils.storage import build_prefix, already_ingested, save_json, delete_prefix
+from src.utils.storage import build_prefix, already_ingested, save_json, delete_prefix, mark_success
 from src.utils.params import sales_items_params_builder
 
 
@@ -148,11 +148,11 @@ def main(start_date: datetime, end_date: datetime, headers: dict, store: str, in
             choices_rows.extend(choices)
 
         if items_rows:
-            upsert(conn, UPSERT_SALES_ITEMS_SQL, items_rows, mode="batch")
+            upsert(conn, UPSERT_SALES_ITEMS_SQL, items_rows)
             mark_success(prefix)
 
         if choices_rows:
-            upsert(conn, UPSERT_SALES_ITEM_CHOICES_SQL, choices_rows, mode="batch")
+            upsert(conn, UPSERT_SALES_ITEM_CHOICES_SQL, choices_rows)
 
         total_items += len(items_rows)
         print(f"[PAGE] sales items {store}, {day}, db_rows={len(items_rows)}")

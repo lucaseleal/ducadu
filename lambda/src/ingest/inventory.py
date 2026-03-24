@@ -13,7 +13,7 @@ from src.config import (
     DEFAULT_BACKOFF,
     LANDING_INVENTORY,
 )
-from src.utils.storage import build_prefix, already_ingested, save_json, delete_prefix
+from src.utils.storage import build_prefix, already_ingested, save_json, delete_prefix, mark_success
 from src.utils.params import inventory_params_builder
 
 
