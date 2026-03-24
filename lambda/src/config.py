@@ -30,7 +30,7 @@ DEFAULT_BACKOFF = 5
 # --------------------------------------------------
 # LANDING BUCKET
 # --------------------------------------------------
-LANDING_BUCKET = "ducadu_landing"
+LANDING_BUCKET = "ducadu-landing"
 
 LANDING_SALES = "sales"
 LANDING_SALES_ITEMS = "sales_items"
