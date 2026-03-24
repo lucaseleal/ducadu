@@ -20,11 +20,11 @@ def _parse_event(event: dict) -> tuple[datetime, datetime, bool]:
 
     raw_start = event.get("start_date")
     raw_end = event.get("end_date")
-    incremental: bool = event.get("incremental", True)
+    incremental: bool = event.get("incremental", False)
 
     try:
         start_date = datetime.combine(
-            datetime.strptime(raw_start, "%Y-%m-%d").date() if raw_start else today - timedelta(days=15),
+            datetime.strptime(raw_start, "%Y-%m-%d").date() if raw_start else today - timedelta(days=2),
             time.min,
             tzinfo=timezone.utc,
         )
