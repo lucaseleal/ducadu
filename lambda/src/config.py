@@ -11,6 +11,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 TOKEN_BOTAFOGO = os.getenv("TOKEN_BOTAFOGO")
 TOKEN_BARRA = os.getenv("TOKEN_BARRA")
 TOKEN_TIJUCA = os.getenv("TOKEN_TIJUCA")
+TOKEN_LEBLON = os.getenv("TOKEN_LEBLON")
 
 # --------------------------------------------------
 # API URLS
@@ -47,4 +48,5 @@ STORE_TOKENS = {
     "botafogo": TOKEN_BOTAFOGO,
     "barra": TOKEN_BARRA,
     "tijuca": TOKEN_TIJUCA,
+    "leblon": TOKEN_LEBLON,
 }
