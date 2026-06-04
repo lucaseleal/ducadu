@@ -24,7 +24,7 @@ def transform_sales_items(payload: list):
     choices = []
 
     for sale in payload:
-        for item in sale.get("items", []):
+        for item in (sale.get("items") or []):
             items.append((
                 item.get("id_sale_item"),
                 sale.get("id_sale"),
@@ -44,7 +44,7 @@ def transform_sales_items(payload: list):
                 item.get("group_sequence"),
             ))
 
-            for choice in item.get("choices", []):
+            for choice in (item.get("choices") or []):
                 choices.append((
                     choice.get("id_sale_item_choice"),
                     item.get("id_sale_item"),
