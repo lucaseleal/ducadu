@@ -17,13 +17,13 @@ def main(start_date: datetime, end_date: datetime, incremental: bool = True) -> 
         print(f"\n===== INGEST STORE: {store.upper()} =====")
         headers = build_headers(token)
 
-        ingest_inventory(
-            start_date=start_date,
-            end_date=end_date,
-            headers=headers,
-            store=store,
-            incremental=incremental,
-        )
+        # ingest_inventory(
+        #     start_date=start_date,
+        #     end_date=end_date,
+        #     headers=headers,
+        #     store=store,
+        #     incremental=incremental,
+        # )
 
         ingest_sales(
             start_date=start_date,
