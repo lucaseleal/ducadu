@@ -62,7 +62,14 @@ def _fetch_with_retry(
             time.sleep(wait)
 
         except requests.exceptions.HTTPError as e:
-            raise Exception(f"[ERROR] HTTP {e.response.status_code} offset={offset}: {e}") from e
+            status = e.response.status_code
+            if status in (429, 502, 503, 504) and attempt < retries:
+                last_exc = e
+                wait = backoff * attempt + random.uniform(0, 1)
+                print(f"[RETRY] offset={offset} attempt={attempt}/{retries} aguardando {wait:.1f}s — HTTP {status}")
+                time.sleep(wait)
+            else:
+                raise Exception(f"[ERROR] HTTP {status} offset={offset}: {e}") from e
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"[ERROR] Request falhou offset={offset}: {e}") from e
