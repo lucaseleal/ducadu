@@ -23,3 +23,13 @@ def upsert(conn: psycopg.Connection, sql: LiteralString, rows: list, page_size: 
     except Exception:
         conn.rollback()
         raise
+
+
+def execute(conn: psycopg.Connection, sql: str, params=None) -> None:
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise

@@ -42,6 +42,15 @@ def transform_sales_items(payload: list):
                 item.get("id_store_item"),
                 item.get("id_store_variation"),
                 item.get("group_sequence"),
+                item.get("created_by"),
+                item.get("deleted_at"),
+                item.get("deleted_by"),
+                item.get("id_sale_to"),
+                item.get("id_sale_from"),
+                item.get("id_store_waiter"),
+                item.get("identifier_number"),
+                item.get("delete_authorized_by"),
+                item.get("id_store_cancellation_reason"),
             ))
 
             for choice in (item.get("choices") or []):
@@ -54,6 +63,7 @@ def transform_sales_items(payload: list):
                     choice.get("deleted"),
                     choice.get("notes"),
                     choice.get("integration_code"),
+                    choice.get("id_store_choice_item"),
                 ))
 
     return items, choices
@@ -79,13 +89,29 @@ INSERT INTO sales_items (
     integration_code,
     id_store_item,
     id_store_variation,
-    group_sequence
+    group_sequence,
+    created_by,
+    deleted_at,
+    deleted_by,
+    id_sale_to,
+    id_sale_from,
+    id_store_waiter,
+    identifier_number,
+    delete_authorized_by,
+    id_store_cancellation_reason
 )
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 ON CONFLICT (id_sale_item) DO UPDATE SET
-    quantity = EXCLUDED.quantity,
-    unit_price = EXCLUDED.unit_price,
-    updated_at = EXCLUDED.updated_at;
+    quantity                     = EXCLUDED.quantity,
+    unit_price                   = EXCLUDED.unit_price,
+    updated_at                   = EXCLUDED.updated_at,
+    status                       = EXCLUDED.status,
+    deleted                      = EXCLUDED.deleted,
+    done_at                      = EXCLUDED.done_at,
+    deleted_at                   = EXCLUDED.deleted_at,
+    deleted_by                   = EXCLUDED.deleted_by,
+    delete_authorized_by         = EXCLUDED.delete_authorized_by,
+    id_store_cancellation_reason = EXCLUDED.id_store_cancellation_reason;
 """
 
 UPSERT_SALES_ITEM_CHOICES_SQL = """
@@ -97,9 +123,10 @@ INSERT INTO sales_item_choices (
     aditional_price,
     deleted,
     notes,
-    integration_code
+    integration_code,
+    id_store_choice_item
 )
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
 ON CONFLICT (id_sale_item_choice) DO NOTHING;
 """
 
