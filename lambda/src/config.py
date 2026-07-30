@@ -3,7 +3,13 @@ import os
 # --------------------------------------------------
 # DATABASE
 # --------------------------------------------------
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL          = os.getenv("DATABASE_URL")
+
+# --------------------------------------------------
+# GOOGLE SHEETS
+# --------------------------------------------------
+SHEETS_SPREADSHEET_ID = os.getenv("SHEETS_SPREADSHEET_ID")
+GOOGLE_SA_JSON_B64    = os.getenv("GOOGLE_SA_JSON_B64")
 
 # --------------------------------------------------
 # AUTH

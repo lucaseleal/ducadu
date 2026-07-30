@@ -5,7 +5,7 @@ from src.config import STORE_TOKENS, build_headers
 
 def main(start_date: datetime, end_date: datetime, incremental: bool = True) -> None:
     # Importações locais para evitar circular import e manter o módulo leve no cold start
-    from src.ingest.inventory import main as ingest_inventory
+    # from src.ingest.inventory import main as ingest_inventory
     from src.ingest.sales import main as ingest_sales
     from src.ingest.sales_items import main as ingest_sales_items
 

@@ -1,0 +1,46 @@
+name: Deploy Sheets Lambda
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: lambda
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -t package
+
+      - name: Copy source code
+        run: |
+          cp -r src package/
+          cp lambda_sheets_function.py package/
+
+      - name: Create zip
+        run: |
+          cd package
+          zip -r ../lambda_sheets.zip .
+
+      - name: Deploy to AWS Lambda
+        run: |
+          aws lambda update-function-code \
+            --region sa-east-1 \
+            --function-name sheets-ingest \
+            --zip-file fileb://lambda_sheets.zip
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: sa-east-1
