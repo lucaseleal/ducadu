@@ -22,7 +22,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt -t package
+          pip install \
+            --platform manylinux2014_x86_64 \
+            --only-binary=:all: \
+            --target package \
+            -r requirements.txt
 
       - name: Copy source code
         run: |
