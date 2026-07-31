@@ -12,7 +12,7 @@ SA_JSON_B64    = os.getenv("GOOGLE_SA_JSON_B64")
 
 
 def _gc():
-    sa = json.loads(base64.b64decode(SA_JSON_B64).decode())
+    sa = json.loads(base64.b64decode((SA_JSON_B64 or "") + "==").decode())
     return gspread.service_account_from_dict(sa)
 
 
