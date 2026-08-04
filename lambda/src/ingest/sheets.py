@@ -2,6 +2,7 @@ import base64
 import json
 import os
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import gspread
 
@@ -35,7 +36,22 @@ INSERT INTO ficha_tecnica (item, ingrediente, quantidade, unidade_medida)
 VALUES (%s, %s, %s, %s)
 """
 
-
+def _to_decimal(val):
+    if val in (None, "", "null", "None"):
+        return None
+    
+    # Se já for float ou int, converte para string primeiro de forma segura
+    if isinstance(val, (float, int)):
+        val_str = str(val)
+    else:
+        # Se for string, substitui vírgula por ponto
+        val_str = str(val).replace(",", ".").strip()
+    
+    try:
+        return Decimal(val_str)
+    except Exception:
+        return None
+    
 def _ingest_dim_lojas(conn, gc) -> None:
     rows = [(r["id"], r["loja"]) for r in _rows(gc, "de-para lojas")]
     execute(conn, "TRUNCATE TABLE dim_lojas")
@@ -57,14 +73,18 @@ def _ingest_dim_produtos(conn, gc) -> None:
 
 def _ingest_ficha_tecnica(conn, gc) -> None:
     rows = [
-        (r["item"], r["ingrediente"], str(r["quantidade"]).replace(",", ".") if r.get("quantidade") not in (None, "") else None, r["unidade_medida"])
+        (
+            r["item"], 
+            r["ingrediente"], 
+            _to_decimal(r.get("quantidade")), 
+            r["unidade_medida"]
+        )
         for r in _rows(gc, "FT")
     ]
     execute(conn, "TRUNCATE TABLE ficha_tecnica")
     if rows:
         upsert(conn, INSERT_FICHA_TECNICA_SQL, rows)
     print(f"[SHEETS] ficha_tecnica: {len(rows)} linhas")
-
 
 def _log_run(gc, status_code: int, message: str) -> None:
     try:
