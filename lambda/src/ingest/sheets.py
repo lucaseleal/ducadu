@@ -57,7 +57,7 @@ def _ingest_dim_produtos(conn, gc) -> None:
 
 def _ingest_ficha_tecnica(conn, gc) -> None:
     rows = [
-        (r["item"], r["ingrediente"], r.get("quantidade"), r["unidade_medida"])
+        (r["item"], r["ingrediente"], str(r["quantidade"]).replace(",", ".") if r.get("quantidade") not in (None, "") else None, r["unidade_medida"])
         for r in _rows(gc, "FT")
     ]
     execute(conn, "TRUNCATE TABLE ficha_tecnica")
