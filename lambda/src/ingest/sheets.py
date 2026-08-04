@@ -96,6 +96,6 @@ def main() -> None:
         raise
     finally:
         conn.close()
-        _log_run(gc, 500 if error_msg else 200, error_msg or "Sync concluído com sucesso")
+        # _log_run(gc, 500 if error_msg else 200, error_msg or "Sync concluído com sucesso")
 
     print("[DONE] Google Sheets ingest concluído")
