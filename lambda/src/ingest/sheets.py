@@ -18,7 +18,7 @@ def _gc():
 
 
 def _rows(gc, tab: str) -> list[dict]:
-    return gc.open_by_key(SPREADSHEET_ID).worksheet(tab).get_all_records()
+    return gc.open_by_key(SPREADSHEET_ID).worksheet(tab).get_all_records(numericise_ignore=['all'])
 
 
 INSERT_DIM_LOJAS_SQL = """
