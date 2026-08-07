@@ -57,12 +57,25 @@ def _ensure_tunnel() -> None:
 def _conn_url() -> str:
     if not _CF_TUNNEL_HOST:
         return DATABASE_URL
-    url = re.sub(r"@[^/?]+", f"@127.0.0.1:{_PROXY_PORT}", DATABASE_URL or "")
-    # channel_binding=require não funciona via proxy TCP do cloudflared:
-    # o NeonDB não detecta sessão TLS end-to-end e só oferece SCRAM-SHA-256 (sem PLUS)
+    db_url = DATABASE_URL or ""
+
+    # Extrai o endpoint ID do hostname original para NeonDB fazer roteamento via SNI
+    # ex: ep-ancient-haze-acllxf1k-pooler.sa-east-1.aws.neon.tech → ep-ancient-haze-acllxf1k-pooler
+    host_match = re.search(r"@([^/?:]+)", db_url)
+    endpoint_id = host_match.group(1).split(".")[0] if host_match else ""
+
+    # Substitui host pelo proxy local
+    url = re.sub(r"@[^/?]+", f"@127.0.0.1:{_PROXY_PORT}", db_url)
+
+    # Remove channel_binding: NeonDB não detecta TLS end-to-end via proxy e só oferece SCRAM-SHA-256
     url = re.sub(r"&channel_binding=[^&]*", "", url)
     url = re.sub(r"\?channel_binding=[^&]*&", "?", url)
     url = re.sub(r"\?channel_binding=[^&]*$", "", url)
+
+    # Passa o endpoint ID via options para NeonDB rotear corretamente sem SNI
+    sep = "&" if "?" in url else "?"
+    url += f"{sep}options=endpoint%3D{endpoint_id}"
+
     return url
 
 
