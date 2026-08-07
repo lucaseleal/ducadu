@@ -54,12 +54,14 @@ def _ensure_tunnel() -> None:
     raise RuntimeError(f"[TUNNEL] cloudflared não ficou pronto em 10s — {_CF_TUNNEL_HOST}")
 
 
-def _conn_url() -> str:
+def _conn_params() -> tuple[str, dict]:
+    """Retorna (url, kwargs_extras) para psycopg.connect()."""
     if not _CF_TUNNEL_HOST:
-        return DATABASE_URL
+        return DATABASE_URL or "", {}
+
     db_url = DATABASE_URL or ""
 
-    # Extrai o endpoint ID do hostname original para NeonDB fazer roteamento via SNI
+    # Extrai endpoint ID do hostname original para roteamento NeonDB sem SNI
     # ex: ep-ancient-haze-acllxf1k-pooler.sa-east-1.aws.neon.tech → ep-ancient-haze-acllxf1k-pooler
     host_match = re.search(r"@([^/?:]+)", db_url)
     endpoint_id = host_match.group(1).split(".")[0] if host_match else ""
@@ -72,18 +74,16 @@ def _conn_url() -> str:
     url = re.sub(r"\?channel_binding=[^&]*&", "?", url)
     url = re.sub(r"\?channel_binding=[^&]*$", "", url)
 
-    # Passa o endpoint ID via options para NeonDB rotear corretamente sem SNI
-    sep = "&" if "?" in url else "?"
-    url += f"{sep}options=endpoint%3D{endpoint_id}"
-
-    return url
+    # options passado como kwarg para evitar rejeição do psycopg3 ao "=" dentro do valor de URI
+    return url, {"options": f"endpoint={endpoint_id}"}
 
 
 def get_conn() -> psycopg.Connection:
     if not DATABASE_URL:
         raise ValueError("[FATAL] DATABASE_URL não definida")
     _ensure_tunnel()
-    return psycopg.connect(_conn_url(), row_factory=tuple_row)
+    url, extra = _conn_params()
+    return psycopg.connect(url, row_factory=tuple_row, **extra)
 
 
 def upsert(conn: psycopg.Connection, sql: LiteralString, rows: list, page_size: int = 1000) -> None:
