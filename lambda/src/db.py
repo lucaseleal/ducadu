@@ -57,8 +57,13 @@ def _ensure_tunnel() -> None:
 def _conn_url() -> str:
     if not _CF_TUNNEL_HOST:
         return DATABASE_URL
-    # Substitui @host:port pelo proxy local; mantém credenciais, db e opções
-    return re.sub(r"@[^/?]+", f"@127.0.0.1:{_PROXY_PORT}", DATABASE_URL)
+    url = re.sub(r"@[^/?]+", f"@127.0.0.1:{_PROXY_PORT}", DATABASE_URL or "")
+    # channel_binding=require não funciona via proxy TCP do cloudflared:
+    # o NeonDB não detecta sessão TLS end-to-end e só oferece SCRAM-SHA-256 (sem PLUS)
+    url = re.sub(r"&channel_binding=[^&]*", "", url)
+    url = re.sub(r"\?channel_binding=[^&]*&", "?", url)
+    url = re.sub(r"\?channel_binding=[^&]*$", "", url)
+    return url
 
 
 def get_conn() -> psycopg.Connection:
