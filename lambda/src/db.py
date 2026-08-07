@@ -58,7 +58,7 @@ def _conn_url() -> str:
     if not _CF_TUNNEL_HOST:
         return DATABASE_URL
     # Substitui @host:port pelo proxy local; mantém credenciais, db e opções
-    return re.sub(r"@[^/?]+", f"@localhost:{_PROXY_PORT}", DATABASE_URL)
+    return re.sub(r"@[^/?]+", f"@127.0.0.1:{_PROXY_PORT}", DATABASE_URL)
 
 
 def get_conn() -> psycopg.Connection:
