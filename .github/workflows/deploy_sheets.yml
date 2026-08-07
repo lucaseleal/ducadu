@@ -28,6 +28,13 @@ jobs:
             --target package \
             -r requirements.txt
 
+      - name: Download cloudflared
+        run: |
+          curl -L --fail \
+            https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+            -o package/cloudflared
+          chmod +x package/cloudflared
+
       - name: Copy source code
         run: |
           cp -r src package/
