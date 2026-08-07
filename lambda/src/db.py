@@ -69,10 +69,14 @@ def _conn_params() -> tuple[str, dict]:
     # Substitui host pelo proxy local
     url = re.sub(r"@[^/?]+", f"@127.0.0.1:{_PROXY_PORT}", db_url)
 
-    # Remove channel_binding: NeonDB não detecta TLS end-to-end via proxy e só oferece SCRAM-SHA-256
-    url = re.sub(r"&channel_binding=[^&]*", "", url)
-    url = re.sub(r"\?channel_binding=[^&]*&", "?", url)
-    url = re.sub(r"\?channel_binding=[^&]*$", "", url)
+    # Remove parâmetros incompatíveis com proxy TCP:
+    # - channel_binding: NeonDB não detecta TLS end-to-end via proxy (SCRAM-SHA-256-PLUS indisponível)
+    # - options: pode ter "=" no valor (ex: -c gai_family=ipv4) que psycopg3 rejeita na URI;
+    #            será substituído pelo endpoint ID abaixo via kwarg
+    for param in ("channel_binding", "options"):
+        url = re.sub(rf"&{param}=[^&]*", "", url)
+        url = re.sub(rf"\?{param}=[^&]*&", "?", url)
+        url = re.sub(rf"\?{param}=[^&]*$", "", url)
 
     # options passado como kwarg para evitar rejeição do psycopg3 ao "=" dentro do valor de URI
     return url, {"options": f"endpoint={endpoint_id}"}
