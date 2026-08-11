@@ -6,12 +6,13 @@ from datetime import datetime, date, time, timedelta, timezone
 from src.ingest.ingest_job import main
 
 
-def _parse_event(event: dict) -> tuple[datetime, datetime, bool]:
+def _parse_event(event: dict) -> tuple[datetime, datetime, bool, list[str] | None]:
     today: date = datetime.now(timezone.utc).date()
 
     raw_start = event.get("start_date")
     raw_end = event.get("end_date")
     incremental: bool = event.get("incremental", False)
+    stores: list[str] | None = event.get("stores") or None  # ex: ["botafogo", "barra"]
 
     try:
         start_date = datetime.combine(
@@ -30,7 +31,7 @@ def _parse_event(event: dict) -> tuple[datetime, datetime, bool]:
     if start_date > end_date:
         raise ValueError(f"start_date ({raw_start}) não pode ser maior que end_date ({raw_end})")
 
-    return start_date, end_date, incremental
+    return start_date, end_date, incremental, stores
 
 
 def _schedule_retry(event: dict, function_arn: str, delay_minutes: int = 60) -> None:
@@ -64,15 +65,15 @@ def lambda_handler(event: dict, context) -> dict:
     print(f"[EVENT] {json.dumps(event)}")
 
     try:
-        start_date, end_date, incremental = _parse_event(event)
+        start_date, end_date, incremental, stores = _parse_event(event)
     except ValueError as e:
         print(f"[ERROR] Parâmetro inválido: {e}")
         return {"statusCode": 400, "body": json.dumps({"error": str(e)})}
 
-    print(f"[CONFIG] start={start_date.date()} end={end_date.date()} incremental={incremental}")
+    print(f"[CONFIG] start={start_date.date()} end={end_date.date()} incremental={incremental} stores={stores or 'all'}")
 
     try:
-        main(start_date=start_date, end_date=end_date, incremental=incremental)
+        main(start_date=start_date, end_date=end_date, incremental=incremental, stores=stores)
         return {
             "statusCode": 200,
             "body": json.dumps({
@@ -80,6 +81,7 @@ def lambda_handler(event: dict, context) -> dict:
                 "start_date": str(start_date.date()),
                 "end_date": str(end_date.date()),
                 "incremental": incremental,
+                "stores": stores or "all",
             }),
         }
 
@@ -90,6 +92,7 @@ def lambda_handler(event: dict, context) -> dict:
             "start_date": start_date.strftime("%Y-%m-%d"),
             "end_date": end_date.strftime("%Y-%m-%d"),
             "incremental": incremental,
+            **({"stores": stores} if stores else {}),
         }
         _schedule_retry(retry_event, context.invoked_function_arn)
 

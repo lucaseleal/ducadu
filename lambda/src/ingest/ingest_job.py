@@ -3,13 +3,18 @@ from datetime import datetime
 from src.config import STORE_TOKENS, build_headers
 
 
-def main(start_date: datetime, end_date: datetime, incremental: bool = True) -> None:
+def main(start_date: datetime, end_date: datetime, incremental: bool = True, stores: list[str] | None = None) -> None:
     # Importações locais para evitar circular import e manter o módulo leve no cold start
     # from src.ingest.inventory import main as ingest_inventory
     from src.ingest.sales import main as ingest_sales
     from src.ingest.sales_items import main as ingest_sales_items
 
+    store_filter = {s.lower() for s in stores} if stores else None
+
     for store, token in STORE_TOKENS.items():
+        if store_filter and store not in store_filter:
+            print(f"[SKIP] Loja '{store}' não está no filtro {store_filter}")
+            continue
         if not token:
             print(f"[WARN] Token não definido para loja '{store}' — pulando")
             continue
