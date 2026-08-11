@@ -95,6 +95,19 @@ def transform_payments(data: list) -> list[tuple]:
     return rows
 
 
+def transform_delivery_men(data: list) -> list[tuple]:
+    rows = []
+    for s in data:
+        for dm in (s.get("delivery_man") or []):
+            rows.append((
+                s["id_sale"],
+                dm.get("id_store_delivery_man"),
+                dm.get("delivery_man_name"),
+                dm.get("id_store_partner_delivery"),
+            ))
+    return rows
+
+
 UPSERT_SALES_SQL = """
 INSERT INTO sales (
     id_sale,
@@ -229,6 +242,11 @@ INSERT INTO sale_payments (id_sale, payment_amount, desc_store_payment_type, cha
 VALUES (%s, %s, %s, %s, %s)
 """
 
+INSERT_SALE_DELIVERY_MEN_SQL = """
+INSERT INTO sale_delivery_men (id_sale, id_store_delivery_man, delivery_man_name, id_store_partner_delivery)
+VALUES (%s, %s, %s, %s)
+"""
+
 
 def main(start_date: datetime, end_date: datetime, headers: dict, store: str, incremental: bool = True):
     conn = get_conn()
@@ -272,11 +290,16 @@ def main(start_date: datetime, end_date: datetime, headers: dict, store: str, in
                 upsert(conn, UPSERT_SALES_SQL, sale_rows)
 
                 sale_ids = [s["id_sale"] for s in all_sales]
-                execute(conn, "DELETE FROM sale_payments WHERE id_sale = ANY(%s)", [sale_ids])
 
+                execute(conn, "DELETE FROM sale_payments WHERE id_sale = ANY(%s)", [sale_ids])
                 payment_rows = transform_payments(all_sales)
                 if payment_rows:
                     upsert(conn, INSERT_SALE_PAYMENTS_SQL, payment_rows)
+
+                execute(conn, "DELETE FROM sale_delivery_men WHERE id_sale = ANY(%s)", [sale_ids])
+                delivery_men_rows = transform_delivery_men(all_sales)
+                if delivery_men_rows:
+                    upsert(conn, INSERT_SALE_DELIVERY_MEN_SQL, delivery_men_rows)
 
                 mark_success(prefix)
                 total += len(sale_rows)
