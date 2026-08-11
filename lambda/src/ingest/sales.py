@@ -8,12 +8,13 @@ from src.utils.params import sales_params_builder
 
 
 def transform_sale(s: dict) -> tuple:
-    partner  = s.get("partner_sale") or {}
-    nfce     = s.get("nfce") or {}
-    delivery = s.get("delivery") or {}
-    customer = s.get("customer") or {}
-    cashier  = s.get("cashier") or {}
-    shift    = s.get("store_shift") or {}
+    partner      = s.get("partner_sale") or {}
+    nfce         = s.get("nfce") or {}
+    delivery     = s.get("delivery") or {}
+    customer     = s.get("customer") or {}
+    cashier      = s.get("cashier") or {}
+    shift        = s.get("store_shift") or {}
+    delivery_man = (s.get("delivery_man") or [{}])[0]
 
     return (
         # core
@@ -73,6 +74,10 @@ def transform_sale(s: dict) -> tuple:
         delivery.get("district"),
         delivery.get("complement"),
         delivery.get("reference"),
+        # delivery_man
+        delivery_man.get("id_store_delivery_man"),
+        delivery_man.get("delivery_man_name"),
+        delivery_man.get("id_store_partner_delivery"),
         # nfce
         nfce.get("serie"),
         nfce.get("numero"),
@@ -91,19 +96,6 @@ def transform_payments(data: list) -> list[tuple]:
                 p.get("desc_store_payment_type"),
                 p.get("change_for"),
                 p.get("created_at"),
-            ))
-    return rows
-
-
-def transform_delivery_men(data: list) -> list[tuple]:
-    rows = []
-    for s in data:
-        for dm in (s.get("delivery_man") or []):
-            rows.append((
-                s["id_sale"],
-                dm.get("id_store_delivery_man"),
-                dm.get("delivery_man_name"),
-                dm.get("id_store_partner_delivery"),
             ))
     return rows
 
@@ -167,6 +159,10 @@ INSERT INTO sales (
     delivery_complement,
     delivery_reference,
 
+    delivery_man_id,
+    delivery_man_name,
+    delivery_man_partner_id,
+
     nfce_serie,
     nfce_number,
     nfce_key,
@@ -182,6 +178,7 @@ VALUES (
     %s, %s,
     %s, %s, %s, %s, %s, %s, %s,
     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+    %s, %s, %s,
     %s, %s, %s, %s
 )
 ON CONFLICT (id_sale) DO UPDATE SET
@@ -231,6 +228,9 @@ ON CONFLICT (id_sale) DO UPDATE SET
     delivery_district           = EXCLUDED.delivery_district,
     delivery_complement         = EXCLUDED.delivery_complement,
     delivery_reference          = EXCLUDED.delivery_reference,
+    delivery_man_id             = EXCLUDED.delivery_man_id,
+    delivery_man_name           = EXCLUDED.delivery_man_name,
+    delivery_man_partner_id     = EXCLUDED.delivery_man_partner_id,
     nfce_serie                  = EXCLUDED.nfce_serie,
     nfce_number                 = EXCLUDED.nfce_number,
     nfce_key                    = EXCLUDED.nfce_key,
@@ -240,11 +240,6 @@ ON CONFLICT (id_sale) DO UPDATE SET
 INSERT_SALE_PAYMENTS_SQL = """
 INSERT INTO sale_payments (id_sale, payment_amount, desc_store_payment_type, change_for, created_at)
 VALUES (%s, %s, %s, %s, %s)
-"""
-
-INSERT_SALE_DELIVERY_MEN_SQL = """
-INSERT INTO sale_delivery_men (id_sale, id_store_delivery_man, delivery_man_name, id_store_partner_delivery)
-VALUES (%s, %s, %s, %s)
 """
 
 
@@ -290,16 +285,11 @@ def main(start_date: datetime, end_date: datetime, headers: dict, store: str, in
                 upsert(conn, UPSERT_SALES_SQL, sale_rows)
 
                 sale_ids = [s["id_sale"] for s in all_sales]
-
                 execute(conn, "DELETE FROM sale_payments WHERE id_sale = ANY(%s)", [sale_ids])
+
                 payment_rows = transform_payments(all_sales)
                 if payment_rows:
                     upsert(conn, INSERT_SALE_PAYMENTS_SQL, payment_rows)
-
-                execute(conn, "DELETE FROM sale_delivery_men WHERE id_sale = ANY(%s)", [sale_ids])
-                delivery_men_rows = transform_delivery_men(all_sales)
-                if delivery_men_rows:
-                    upsert(conn, INSERT_SALE_DELIVERY_MEN_SQL, delivery_men_rows)
 
                 mark_success(prefix)
                 total += len(sale_rows)
