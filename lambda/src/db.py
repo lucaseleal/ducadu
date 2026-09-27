@@ -82,12 +82,17 @@ def _conn_params() -> tuple[str, dict]:
     return url, {"options": f"endpoint={endpoint_id}"}
 
 
-def get_conn() -> psycopg.Connection:
+def get_conn(*, connect_timeout: int = 30) -> psycopg.Connection:
     if not DATABASE_URL:
         raise ValueError("[FATAL] DATABASE_URL não definida")
     _ensure_tunnel()
     url, extra = _conn_params()
-    return psycopg.connect(url, row_factory=tuple_row, **extra)
+    return psycopg.connect(
+        url,
+        row_factory=tuple_row,
+        connect_timeout=connect_timeout,
+        **extra,
+    )
 
 
 def upsert(conn: psycopg.Connection, sql: LiteralString, rows: list, page_size: int = 1000) -> None:

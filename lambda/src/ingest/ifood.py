@@ -196,7 +196,6 @@ ON CONFLICT (id) DO UPDATE SET
 
 
 def _ingest_sales_day(
-    conn,
     client: IfoodClient,
     *,
     merchant_id: str,
@@ -251,9 +250,13 @@ def _ingest_sales_day(
         )
         order_ids.append(sale["id"])
 
-    upsert(conn, UPSERT_ORDERS_SQL, order_rows)
-    if event_rows:
-        upsert(conn, UPSERT_EVENTS_SQL, event_rows)
+    conn = get_conn()
+    try:
+        upsert(conn, UPSERT_ORDERS_SQL, order_rows)
+        if event_rows:
+            upsert(conn, UPSERT_EVENTS_SQL, event_rows)
+    finally:
+        conn.close()
 
     mark_success(prefix)
     print(f"[DONE-DAY] iFood sales merchant={merchant_id} day={day} orders={len(order_rows)} events={len(event_rows)}")
@@ -261,7 +264,6 @@ def _ingest_sales_day(
 
 
 def _ingest_reviews_day(
-    conn,
     client: IfoodClient,
     *,
     merchant_id: str,
@@ -291,7 +293,11 @@ def _ingest_reviews_day(
                 review_rows.append(row)
 
     if review_rows:
-        upsert(conn, UPSERT_REVIEWS_SQL, review_rows)
+        conn = get_conn()
+        try:
+            upsert(conn, UPSERT_REVIEWS_SQL, review_rows)
+        finally:
+            conn.close()
         mark_success(prefix)
 
     print(f"[DONE-DAY] iFood reviews merchant={merchant_id} day={day} rows={len(review_rows)}")
@@ -311,31 +317,25 @@ def main(
         raise RuntimeError("Nenhum merchant iFood configurado ou retornado pela API")
 
     fetch_order_details = _env_bool("IFOOD_FETCH_ORDER_DETAILS", False)
-    conn = get_conn()
     total_orders = 0
     total_reviews = 0
 
-    try:
-        for merchant_id in merchant_ids:
-            print(f"\n===== IFOOD MERCHANT: {merchant_id} =====")
-            for day_start, _day_end in daterange(start_date, end_date):
-                day = day_start.date()
-                total_orders += _ingest_sales_day(
-                    conn,
-                    client,
-                    merchant_id=merchant_id,
-                    day=day,
-                    incremental=incremental,
-                    fetch_order_details=fetch_order_details,
-                )
-                total_reviews += _ingest_reviews_day(
-                    conn,
-                    client,
-                    merchant_id=merchant_id,
-                    day=day,
-                    incremental=incremental,
-                )
-    finally:
-        conn.close()
+    for merchant_id in merchant_ids:
+        print(f"\n===== IFOOD MERCHANT: {merchant_id} =====")
+        for day_start, _day_end in daterange(start_date, end_date):
+            day = day_start.date()
+            total_orders += _ingest_sales_day(
+                client,
+                merchant_id=merchant_id,
+                day=day,
+                incremental=incremental,
+                fetch_order_details=fetch_order_details,
+            )
+            total_reviews += _ingest_reviews_day(
+                client,
+                merchant_id=merchant_id,
+                day=day,
+                incremental=incremental,
+            )
 
     print(f"[DONE] iFood ingest orders={total_orders} reviews={total_reviews}")

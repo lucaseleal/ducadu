@@ -9,9 +9,13 @@ ssh-key-2026-07-15.key.pub
 package/
 .venv/
 *.zip
+lambda/ifood_lambda_env.json
 local/
 secrets
 *.json
 .DS_Store
 create_success.py
 .vscode/
+proposta-dashboard-ducadu.md
+clean_and_classifies_products.py
+scripts/*

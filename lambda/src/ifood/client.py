@@ -87,14 +87,30 @@ class IfoodClient:
         *,
         begin: date,
         end: date,
+        max_pages: int = 100,
     ):
         page = 1
-        while True:
+        seen_order_ids: set[str] = set()
+        while page <= max_pages:
             payload = self.list_sales(merchant_id, begin=begin, end=end, page=page)
             sales = payload.get("sales") or []
             if not sales:
                 break
+
+            order_ids = {s["id"] for s in sales if s.get("id")}
+            if order_ids and order_ids <= seen_order_ids:
+                break
+            seen_order_ids |= order_ids
+
             yield payload
+
+            # Financial API should advance `page` in the response; homologation fixtures often repeat page 1.
+            resp_page = payload.get("page")
+            if resp_page is not None and int(resp_page) < page:
+                break
+            if len(sales) < int(payload.get("size") or len(sales)):
+                break
+
             page += 1
 
     def iter_review_pages(
@@ -104,9 +120,11 @@ class IfoodClient:
         begin: date | None = None,
         end: date | None = None,
         size: int = 50,
+        max_pages: int = 100,
     ):
         page = 1
-        while True:
+        seen_review_ids: set[str] = set()
+        while page <= max_pages:
             payload = self.list_reviews(
                 merchant_id,
                 begin=begin,
@@ -117,7 +135,20 @@ class IfoodClient:
             reviews = payload.get("reviews") or []
             if not reviews:
                 break
+
+            review_ids = {str(r.get("id")) for r in reviews if r.get("id")}
+            if review_ids and review_ids <= seen_review_ids:
+                break
+            seen_review_ids |= review_ids
+
             yield payload
+
+            resp_page = payload.get("page")
+            if resp_page is not None and int(resp_page) < page:
+                break
+            if len(reviews) < int(payload.get("size") or size):
+                break
+
             page += 1
 
     def list_reviews(
