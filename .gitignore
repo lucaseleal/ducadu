@@ -1,11 +1,17 @@
 __pycache__/
 *.pyc
 .env
+env.txt
+output.txt
+run_log.txt
+ssh-key-2026-07-15.key
+ssh-key-2026-07-15.key.pub
 package/
 .venv/
 *.zip
 local/
 secrets
+*.json
 .DS_Store
 create_success.py
 .vscode/

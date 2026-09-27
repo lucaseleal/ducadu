@@ -12,6 +12,19 @@ SHEETS_SPREADSHEET_ID = os.getenv("SHEETS_SPREADSHEET_ID")
 GOOGLE_SA_JSON_B64    = os.getenv("GOOGLE_SA_JSON_B64")
 
 # --------------------------------------------------
+# IFOOD
+# --------------------------------------------------
+IFOOD_CLIENT_ID = os.getenv("IFOOD_CLIENT_ID")
+IFOOD_CLIENT_SECRET = os.getenv("IFOOD_CLIENT_SECRET")
+IFOOD_API_BASE = os.getenv("IFOOD_API_BASE", "https://merchant-api.ifood.com.br")
+IFOOD_AUTH_URL = f"{IFOOD_API_BASE.rstrip('/')}/authentication/v1.0/oauth/token"
+IFOOD_USE_HOMOLOGATION_HEADER = os.getenv("IFOOD_USE_HOMOLOGATION", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
+# --------------------------------------------------
 # AUTH
 # --------------------------------------------------
 TOKEN_BOTAFOGO = os.getenv("TOKEN_BOTAFOGO")
@@ -42,6 +55,15 @@ LANDING_BUCKET = "ducadu-landing"
 LANDING_SALES = "sales"
 LANDING_SALES_ITEMS = "sales_items"
 LANDING_INVENTORY = "inventory"
+LANDING_IFOOD_SALES = "ifood_sales"
+LANDING_IFOOD_REVIEWS = "ifood_reviews"
+
+# Comma-separated merchant UUIDs; empty = all merchants returned by GET /merchants
+IFOOD_MERCHANT_IDS = [
+    m.strip()
+    for m in (os.getenv("IFOOD_MERCHANT_IDS") or "").split(",")
+    if m.strip()
+]
 
 def build_headers(token: str) -> dict:
 
