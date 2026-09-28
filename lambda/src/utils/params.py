@@ -38,3 +38,21 @@ def sales_params_builder(start: datetime, end: datetime, limit: int):
             "p_offset": offset,
         }
     return _builder
+
+
+def sales_status_histories_params_builder(
+    start: datetime,
+    end: datetime,
+    limit: int,
+    *,
+    date_column: str = "shift_date",
+):
+    def _builder(offset: int):
+        return {
+            "p_date_column_filter": date_column,
+            "p_filter_date_start": start.strftime("%Y-%m-%dT%H:%M:%S"),
+            "p_filter_date_end": end.strftime("%Y-%m-%dT%H:%M:%S"),
+            "p_limit": limit,
+            "p_offset": offset,
+        }
+    return _builder

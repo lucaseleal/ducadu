@@ -37,6 +37,7 @@ TOKEN_LEBLON = os.getenv("TOKEN_LEBLON")
 # --------------------------------------------------
 API_SALES = "https://data.saipos.io/v1/search_sales"
 API_SALES_ITEMS = "https://data.saipos.io/v1/sales_items"
+API_SALES_STATUS_HISTORIES = "https://data.saipos.io/v1/sales_status_histories"
 API_INVENTORY_MOVEMENTS = "https://data.saipos.io/v1/search_ingredient_movement"
 
 # --------------------------------------------------
@@ -54,6 +55,7 @@ LANDING_BUCKET = "ducadu-landing"
 
 LANDING_SALES = "sales"
 LANDING_SALES_ITEMS = "sales_items"
+LANDING_SALES_STATUS_HISTORIES = "sales_status_histories"
 LANDING_INVENTORY = "inventory"
 LANDING_IFOOD_SALES = "ifood_sales"
 LANDING_IFOOD_REVIEWS = "ifood_reviews"

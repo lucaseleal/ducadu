@@ -8,6 +8,7 @@ def main(start_date: datetime, end_date: datetime, incremental: bool = True, sto
     # from src.ingest.inventory import main as ingest_inventory
     from src.ingest.sales import main as ingest_sales
     from src.ingest.sales_items import main as ingest_sales_items
+    from src.ingest.sales_status_histories import main as ingest_sales_status_histories
 
     store_filter = {s.lower() for s in stores} if stores else None
 
@@ -39,6 +40,14 @@ def main(start_date: datetime, end_date: datetime, incremental: bool = True, sto
         )
 
         ingest_sales_items(
+            start_date=start_date,
+            end_date=end_date,
+            headers=headers,
+            store=store,
+            incremental=incremental,
+        )
+
+        ingest_sales_status_histories(
             start_date=start_date,
             end_date=end_date,
             headers=headers,
