@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timezone
 import os
 
 from psycopg.types.json import Json
 
 from src.config import (
     IFOOD_MERCHANT_IDS,
+    LANDING_IFOOD_ANALYTICS,
     LANDING_IFOOD_REVIEWS,
+    LANDING_IFOOD_REVIEW_SUMMARY,
     LANDING_IFOOD_SALES,
 )
 from src.db import get_conn, upsert
 from src.ifood.client import IfoodClient
+from src.ifood.kpis import day_reference_bounds, orders_kpis_body_order_status, parse_order_status_counts
 from src.utils.dates import daterange
 from src.utils.storage import already_ingested, build_prefix, delete_prefix, mark_success, save_json
 
@@ -194,6 +197,111 @@ ON CONFLICT (id) DO UPDATE SET
     ingested_at   = NOW();
 """
 
+UPSERT_ANALYTICS_KPI_SQL = """
+INSERT INTO ifood_analytics_kpi_daily (
+    merchant_id, reference_date, gte, lte, request_kind,
+    status_counts, raw_response
+)
+VALUES (%s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (merchant_id, reference_date, request_kind) DO UPDATE SET
+    gte             = EXCLUDED.gte,
+    lte             = EXCLUDED.lte,
+    status_counts   = EXCLUDED.status_counts,
+    raw_response    = EXCLUDED.raw_response,
+    ingested_at     = NOW();
+"""
+
+UPSERT_REVIEW_SUMMARY_SQL = """
+INSERT INTO ifood_review_summary_snapshots (
+    merchant_id, snapshot_date, raw_summary
+)
+VALUES (%s, %s, %s)
+ON CONFLICT (merchant_id, snapshot_date) DO UPDATE SET
+    raw_summary = EXCLUDED.raw_summary,
+    ingested_at = NOW();
+"""
+
+
+def _ingest_analytics_day(
+    client: IfoodClient,
+    *,
+    merchant_id: str,
+    day: date,
+    incremental: bool,
+) -> int:
+    prefix = build_prefix(LANDING_IFOOD_ANALYTICS, merchant_id, str(day))
+    kind = "orders_kpis_orderStatus"
+
+    if incremental and already_ingested(prefix):
+        print(f"[SKIP] iFood analytics merchant={merchant_id} day={day}")
+        return 0
+
+    if not incremental:
+        delete_prefix(prefix)
+
+    print(f"[INFO] iFood analytics merchant={merchant_id} day={day}")
+    gte_s, lte_s = day_reference_bounds(day)
+    gte_dt = datetime.combine(day, time.min, tzinfo=timezone.utc)
+    lte_dt = datetime.combine(day, time.max, tzinfo=timezone.utc)
+
+    body = orders_kpis_body_order_status(gte=gte_s, lte=lte_s)
+    payload = client.post_merchant_order_kpis(merchant_id, body)
+    save_json(payload, prefix=prefix, file_prefix="kpis_orderStatus")
+
+    counts = parse_order_status_counts(payload)
+    row = (
+        merchant_id,
+        day,
+        gte_dt,
+        lte_dt,
+        kind,
+        Json(counts),
+        Json(payload),
+    )
+    conn = get_conn()
+    try:
+        upsert(conn, UPSERT_ANALYTICS_KPI_SQL, [row])
+    finally:
+        conn.close()
+
+    mark_success(prefix)
+    print(f"[DONE-DAY] iFood analytics merchant={merchant_id} day={day} statuses={len(counts)}")
+    return 1
+
+
+def _ingest_review_summary_day(
+    client: IfoodClient,
+    *,
+    merchant_id: str,
+    day: date,
+    incremental: bool,
+) -> int:
+    prefix = build_prefix(LANDING_IFOOD_REVIEW_SUMMARY, merchant_id, str(day))
+
+    if incremental and already_ingested(prefix):
+        print(f"[SKIP] iFood review summary merchant={merchant_id} day={day}")
+        return 0
+
+    if not incremental:
+        delete_prefix(prefix)
+
+    print(f"[INFO] iFood review summary merchant={merchant_id} day={day}")
+    summary = client.get_review_summary(merchant_id)
+    if summary is None:
+        print(f"[DONE-DAY] iFood review summary merchant={merchant_id} day={day} rows=0 (404)")
+        return 0
+
+    save_json(summary, prefix=prefix, file_prefix="summary")
+    conn = get_conn()
+    try:
+        upsert(conn, UPSERT_REVIEW_SUMMARY_SQL, [(merchant_id, day, Json(summary))])
+    finally:
+        conn.close()
+
+    mark_success(prefix)
+    print(f"[DONE-DAY] iFood review summary merchant={merchant_id} day={day} ok")
+    return 1
+
 
 def _ingest_sales_day(
     client: IfoodClient,
@@ -319,6 +427,8 @@ def main(
     fetch_order_details = _env_bool("IFOOD_FETCH_ORDER_DETAILS", False)
     total_orders = 0
     total_reviews = 0
+    total_analytics = 0
+    total_summaries = 0
 
     for merchant_id in merchant_ids:
         print(f"\n===== IFOOD MERCHANT: {merchant_id} =====")
@@ -337,5 +447,20 @@ def main(
                 day=day,
                 incremental=incremental,
             )
+            total_analytics += _ingest_analytics_day(
+                client,
+                merchant_id=merchant_id,
+                day=day,
+                incremental=incremental,
+            )
+            total_summaries += _ingest_review_summary_day(
+                client,
+                merchant_id=merchant_id,
+                day=day,
+                incremental=incremental,
+            )
 
-    print(f"[DONE] iFood ingest orders={total_orders} reviews={total_reviews}")
+    print(
+        f"[DONE] iFood ingest orders={total_orders} reviews={total_reviews} "
+        f"analytics_days={total_analytics} review_summaries={total_summaries}"
+    )

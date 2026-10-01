@@ -1,0 +1,88 @@
+# Deploy admin.ducadu.com.br — TanStack Start → Cloudflare Workers
+#
+# Secrets (GitHub Actions):
+#   CLOUDFLARE_API_TOKEN
+#   CLOUDFLARE_ACCOUNT_ID
+#   DATABASE_URL
+#   SESSION_SECRET
+#   VITE_STREAMLIT_URL
+#
+# Opcional: WORKER_HOSTNAME=admin.ducadu.com.br (default abaixo)
+
+name: Deploy admin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/admin/**"
+      - ".github/workflows/deploy_admin.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-admin
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/admin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          VITE_STREAMLIT_URL: ${{ secrets.VITE_STREAMLIT_URL }}
+
+      - name: Configure worker custom domain
+        env:
+          WORKER_HOSTNAME: admin.ducadu.com.br
+        run: |
+          if [ ! -f .output/server/wrangler.json ]; then
+            echo "Missing .output/server/wrangler.json — check nitro cloudflare build"
+            exit 1
+          fi
+          jq --arg host "$WORKER_HOSTNAME" \
+            '. + {
+              workers_dev: false,
+              routes: [{ pattern: $host, custom_domain: true }]
+            }' \
+            .output/server/wrangler.json > wrangler.tmp.json
+          mv wrangler.tmp.json .output/server/wrangler.json
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageManager: bun
+          wranglerVersion: "4"
+          command: deploy --config .output/server/wrangler.json
+          workingDirectory: apps/admin
+
+      - name: Upload worker secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+        run: |
+          jq -n \
+            --arg db "$DATABASE_URL" \
+            --arg sec "$SESSION_SECRET" \
+            '{DATABASE_URL:$db,SESSION_SECRET:$sec}' \
+            | bunx wrangler secret bulk --config .output/server/wrangler.json

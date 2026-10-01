@@ -21,6 +21,11 @@ class IfoodClient:
             headers["x-request-homologation"] = "true"
         return headers
 
+    def _headers_json(self) -> dict[str, str]:
+        headers = self._headers()
+        headers["Content-Type"] = "application/json"
+        return headers
+
     def _url(self, path: str) -> str:
         return f"{IFOOD_API_BASE.rstrip('/')}/{path.lstrip('/')}"
 
@@ -30,13 +35,16 @@ class IfoodClient:
         path: str,
         *,
         params: dict | None = None,
+        json_body: dict | None = None,
         allow_empty: bool = False,
     ) -> Any:
+        headers = self._headers_json() if json_body is not None else self._headers()
         response = requests.request(
             method,
             self._url(path),
-            headers=self._headers(),
+            headers=headers,
             params=params,
+            json=json_body,
             timeout=self._timeout,
         )
         if allow_empty and response.status_code == 204:
@@ -159,14 +167,54 @@ class IfoodClient:
         end: date | None = None,
         page: int = 1,
         size: int = 50,
+        add_count: bool = False,
     ) -> dict:
-        params: dict[str, str | int] = {"page": page, "size": size}
+        params: dict[str, str | int | bool] = {"page": page, "size": size}
         if begin:
             params["beginReviewDate"] = begin.isoformat()
         if end:
             params["endReviewDate"] = end.isoformat()
+        if add_count:
+            params["addCount"] = "true"
         return self._request(
             "GET",
             f"/review/v2.0/merchants/{merchant_id}/reviews",
             params=params,
         )
+
+    def get_review(self, merchant_id: str, review_id: str) -> dict:
+        return self._request(
+            "GET",
+            f"/review/v2.0/merchants/{merchant_id}/reviews/{review_id}",
+        )
+
+    def get_review_summary(self, merchant_id: str) -> dict | None:
+        response = requests.get(
+            self._url(f"/review/v2.0/merchants/{merchant_id}/summary"),
+            headers=self._headers(),
+            timeout=self._timeout,
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.json()
+
+    def post_merchant_order_kpis(self, merchant_id: str, body: dict) -> dict:
+        """Analytics D-1 aggregated KPIs (POST /analytics/v1.0/merchants/{id}/orders/kpis)."""
+        return self._request(
+            "POST",
+            f"/analytics/v1.0/merchants/{merchant_id}/orders/kpis",
+            json_body=body,
+        )
+
+    @staticmethod
+    def default_kpis_body(*, gte: str, lte: str, group_by: list[str] | None = None) -> dict:
+        agg: dict = {"metrics": {"gmv": ["sum"]}}
+        if group_by:
+            agg["groupBy"] = {"fields": group_by}
+        return {
+            "filter": {"referenceDate": {"gte": gte, "lte": lte}},
+            "agg": agg,
+            "page": 1,
+            "size": 50,
+        }
